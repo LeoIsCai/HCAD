@@ -14,7 +14,7 @@ CORS(
         r"/*": {
             "origins": [
                 "http://localhost:3000",           
-                "https://hcad.vercel.app/"
+                 r"https://.*\.vercel\.app"
             ]
         }
     }
