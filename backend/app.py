@@ -3,7 +3,18 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 app.secret_key = "johnpork"
-CORS(app, supports_credentials=True)
+CORS(
+    app,
+    supports_credentials=True,
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",           
+                "https://hcad-frontend.vercel.app"
+            ]
+        }
+    }
+)
 
 users = {
     "admin": "admin123",
