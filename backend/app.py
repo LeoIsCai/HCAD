@@ -3,6 +3,10 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 app.secret_key = "johnpork"
+app.config.update(
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=True
+)
 CORS(
     app,
     supports_credentials=True,
