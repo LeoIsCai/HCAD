@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Login from "./Login";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+import Dashboard from "./Dashboard";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -13,17 +15,26 @@ function App() {
   };
 
   return (
-    <div className="App">
-      {user ? (
-        <>
-          <h1>Welcome, {user}!</h1>
-          <button onClick={handleLogout}>Log Out</button>
-          {/* Your main app goes here */}
-        </>
-      ) : (
-        <Login onLogin={setUser} />
-      )}
-    </div>
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            user ? <Navigate to="/dashboard" /> : <Login onLogin={setUser} />
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            user ? (
+              <Dashboard user={user} onLogout={handleLogout} />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
 
