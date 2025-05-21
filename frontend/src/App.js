@@ -7,7 +7,7 @@ function App() {
   const [user, setUser] = useState(null);
 
   const handleLogout = async () => {
-    await fetch("http://localhost:5000/logout", {
+    await fetch("https://hcad.onrender.com/logout", {
       method: "POST",
       credentials: "include",
     });
