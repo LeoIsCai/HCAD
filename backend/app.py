@@ -3,7 +3,7 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 app.secret_key = "johnpork"
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "https://hcad.onrender.com/"}})
+CORS(app, supports_credentials=True)
 
 users = {
     "admin": "admin123",
