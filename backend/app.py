@@ -10,7 +10,7 @@ CORS(
         r"/*": {
             "origins": [
                 "http://localhost:3000",           
-                "https://hcad-frontend.vercel.app"
+                "https://hcad.vercel.app/"
             ]
         }
     }
