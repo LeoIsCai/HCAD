@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-  const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
-  
+  const API = process.env.REACT_APP_API_URL || "http://localhost:3000";
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -28,6 +28,7 @@ function Login({ onLogin }) {
   };
 
   return (
+    <>
     <form onSubmit={handleLogin}>
       <h2>Login</h2>
       <input
@@ -45,6 +46,14 @@ function Login({ onLogin }) {
       /><br />
       <button type="submit">Login</button>
     </form>
+    <p style={{ marginTop: "1rem" }}>
+      Noch keinen Account?{" "}
+      <Link to="/register" style={{ color: "blue", textDecoration: "underline" }}>
+        Hier einen Account erstellen
+      </Link>
+      .
+    </p>
+    </>
   );
 }
 
