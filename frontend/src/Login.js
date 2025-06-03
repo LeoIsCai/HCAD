@@ -5,11 +5,12 @@ function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
-
+  const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+  
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    const res = await fetch("https://hcad.onrender.com/login", {
+    const res = await fetch(`${API}/login`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
