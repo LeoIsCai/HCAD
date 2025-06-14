@@ -1,339 +1,159 @@
-import { Link } from "react-router-dom";
-import Board from "./Board";
-import { useState, useEffect } from "react";
+// src/components/Dashboard.js
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Modal from './Modal';
+import PostForm from './PostForm';
 
-function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user, onLogout }) {
   const [requests, setRequests] = useState([]);
   const [loadingReqs, setLoadingReqs] = useState(true);
-
-  const [anliegen, setAnliegen]         = useState("");
-  const [adresse, setAdresse]           = useState("");
-  const [telefon, setTelefon]           = useState("");
-  const [name, setName]                 = useState("");
-  const [datumzeit, setDatumzeit]       = useState("");
-  const [beschreibung, setBeschreibung] = useState("");
-
   const [answerTexts, setAnswerTexts] = useState({});
-
-  const API = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
+  const [showModal, setShowModal] = useState(false);
+  const [expandedMy, setExpandedMy] = useState({});
+  const [expandedAll, setExpandedAll] = useState({});
+  const navigate = useNavigate();
+  const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
   useEffect(() => {
-    const fetchRequests = async () => {
+    (async () => {
       try {
-        const res = await fetch(`${API}/requests`, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (res.status === 401) {
-          window.location.href = "/";
-          return;
-        }
-        const data = await res.json();
-        setRequests(data);
-      } catch (err) {
-        console.error("Fehler beim Laden der Anfragen:", err);
-        alert("Anfragen konnten nicht geladen werden.");
+        const res = await fetch(`${API}/requests`, { credentials: 'include' });
+        if (res.status === 401) return navigate('/');
+        setRequests(await res.json());
+      } catch {
+        alert('Fehler beim Laden der Anfragen.');
       } finally {
         setLoadingReqs(false);
       }
-    };
-    fetchRequests();
-  }, [API]);
+    })();
+  }, [API, navigate]);
 
-  const handleSubmitRequest = async (e) => {
-    e.preventDefault();
-    if (!(anliegen && adresse && telefon && name && datumzeit && beschreibung)) {
-      alert("Bitte fülle alle Felder aus.");
-      return;
-    }
+  // Delete a request
+  const handleDeleteRequest = async id => {
+    if (!window.confirm('Möchtest du diese Anfrage wirklich löschen?')) return;
     try {
-      const payload = { anliegen, adresse, telefon, name, datumzeit, beschreibung };
-      const res = await fetch(`${API}/requests`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      const res = await fetch(`${API}/requests/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message);
-      }
-      const result = await res.json(); // enthält { message, id }
-
-      // Optimistische Aktualisierung: neuen Request-Objekt zusammenbasteln
-      const newReq = {
-        id: result.id,
-        username: user,
-        anliegen,
-        adresse,
-        telefon,
-        name,
-        datumzeit,
-        beschreibung,
-        timestamp: new Date().toISOString(),
-        answers: []  // noch leer
-      };
-      setRequests([newReq, ...requests]);
-
-      // Formular zurücksetzen
-      setAnliegen("");
-      setAdresse("");
-      setTelefon("");
-      setName("");
-      setDatumzeit("");
-      setBeschreibung("");
-    } catch (err) {
-      console.error("Fehler beim Erstellen der Anfrage:", err);
-      alert("Anfrage konnte nicht erstellt werden: " + err.message);
+      if (!res.ok) throw new Error();
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch {
+      alert('Löschen fehlgeschlagen.');
     }
   };
 
-  const handleSubmitAnswer = async (reqId) => {
-    const content = answerTexts[reqId] ? answerTexts[reqId].trim() : "";
-    if (!content) {
-      alert("Antwort darf nicht leer sein.");
-      return;
-    }
+  const myRequests = requests.filter(r => r.username === user);
+  const toggleMy = id => setExpandedMy(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleAll = id => setExpandedAll(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const handleSubmitAnswer = async id => {
+    const content = (answerTexts[id] || '').trim();
+    if (!content) return alert('Antwort darf nicht leer sein.');
     try {
-      const res = await fetch(`${API}/requests/${reqId}/answers`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+      const res = await fetch(`${API}/requests/${id}/answers`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message);
-      }
-
-      // Optimistische Aktualisierung: Antwort in das passende requests-Objekt "hineinpushen"
-      const updatedRequests = requests.map((req) => {
-        if (req.id === reqId) {
-          const newAnswer = {
-            username: user,
-            content,
-            timestamp: new Date().toISOString(),
-          };
-          return {
-            ...req,
-            answers: [newAnswer, ...req.answers] // neue Antwort vorne anhängen
-          };
-        }
-        return req;
-      });
-      setRequests(updatedRequests);
-
-      // Antwort‐Textfeld leeren
-      setAnswerTexts((prev) => ({
-        ...prev,
-        [reqId]: "",
-      }));
-    } catch (err) {
-      console.error("Fehler beim Erstellen der Antwort:", err);
-      alert("Antwort konnte nicht erstellt werden: " + err.message);
+      if (!res.ok) throw new Error();
+      setRequests(prev =>
+        prev.map(r =>
+          r.id === id
+            ? { ...r, answers: [{ username: user, content, timestamp: new Date().toISOString() }, ...r.answers] }
+            : r
+        )
+      );
+      setAnswerTexts(prev => ({ ...prev, [id]: '' }));
+    } catch {
+      alert('Antwort konnte nicht erstellt werden.');
     }
   };
+
+  // Styles
+  const container = { minHeight: '100vh', background: '#f5f5f5', paddingTop: '80px' };
+  const topBar = { position: 'fixed', top: 0, left: 0, right: 0, height: '60px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 100 };
+  const navBtn = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '8px 12px' };
+  const section = { maxWidth: '800px', margin: '20px auto', background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' };
+  const card = { marginBottom: '15px' };
+  const btnPrimary = { background: '#1f93ff', color: '#fff', padding: '10px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' };
+  const btnToggle = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' };
+
+  const renderRequest = (req, expanded, toggleFn, showDelete) => (
+    <div key={req.id} style={card}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{req.anliegen}</h3>
+        <button onClick={() => toggleFn(req.id)} style={btnToggle}>
+          {expanded[req.id] ? '▼' : '▶'}
+        </button>
+      </div>
+      {expanded[req.id] && (
+        <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #eee', borderRadius: '4px', position: 'relative' }}>
+          <p><strong>Von:</strong> {req.name}</p>
+          <p><strong>Telefon:</strong> {req.telefon}</p>
+          <p><strong>Adresse:</strong> {req.adresse}</p>
+          <p style={{ marginTop: '10px' }}>{req.beschreibung}</p>
+          <p style={{ marginTop: '8px', fontSize: '12px', color: '#999' }}>Erfasst am {new Date(req.timestamp).toLocaleString()}</p>
+          <div style={{ marginTop: '12px' }}>
+            <h4 style={{ margin: '0 0 8px 0' }}>Antworten:</h4>
+            {req.answers.length ? req.answers.map((ans, i) => (
+              <div key={i} style={{ background: '#f9f9f9', padding: '8px', borderRadius: '4px', marginBottom: '8px' }}>
+                <p style={{ margin: 0, fontSize: '14px' }}><strong>{ans.username}</strong> <span style={{ fontSize: '12px', color: '#888' }}>{new Date(ans.timestamp).toLocaleString()}</span></p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px' }}>{ans.content}</p>
+              </div>
+            )) : <p style={{ fontSize: '14px', color: '#666' }}>Keine Antworten.</p>}
+            <textarea
+              value={answerTexts[req.id] || ''}
+              onChange={e => setAnswerTexts(prev => ({ ...prev, [req.id]: e.target.value }))}
+              placeholder="Deine Antwort…"
+              rows={2}
+              style={{ width: '100%', padding: '8px', marginTop: '6px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+            />
+            <button onClick={() => handleSubmitAnswer(req.id)} style={{ ...btnPrimary, marginTop: '6px' }}>Absenden</button>
+          </div>
+          {showDelete && (
+            <button
+              onClick={() => handleDeleteRequest(req.id)}
+              style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'red', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Löschen
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h1>Willkommen, {user}!</h1>
-
-      <nav style={{ marginBottom: "1rem" }}>
-        <Link to="/dashboard" style={{ marginRight: "1rem" }}>
-          Dashboard
-        </Link>
-        <Link to="/account" style={{ marginRight: "1rem" }}>
-          Mein Account
-        </Link>
-        <button onClick={onLogout}>Log Out</button>
-      </nav>
-
-      {/* -------------------- A: Dein Dashboard‐Inhalt -------------------- */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h2>Deine Übersichten</h2>
-        <p>…Hier stehen deine Dashboard‐Inhalte…</p>
+    <div style={container}>
+      <div style={topBar}>
+        <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Dein Dashboard</h1>
+        <div>
+          <button onClick={() => navigate('/account')} style={navBtn}>Mein Account</button>
+          <button onClick={onLogout} style={{ ...navBtn, color: 'red' }}>Logout</button>
+        </div>
       </div>
 
-      {/* -------------------- B: Hilfe‐Anfrage erstellen  -------------------- */}
-      <div style={{ marginBottom: "2rem" }}>
-        <h2>Hilfe‐Anfrage erstellen</h2>
-        <form onSubmit={handleSubmitRequest} style={{ marginBottom: "1rem" }}>
-          {/* Anliegen */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>Anliegen:</label><br />
-            <input
-              type="text"
-              value={anliegen}
-              onChange={(e) => setAnliegen(e.target.value)}
-              placeholder="z.B. Einkaufshilfe"
-              required
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
-          </div>
+      <section style={section}>
+        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Deine Übersichten</h2>
+        {loadingReqs ? <p>Lade deine Anfragen…</p> : (myRequests.length ? myRequests.map(req => renderRequest(req, expandedMy, toggleMy, true)) : <p style={{ color: '#666' }}>Keine offenen Anfragen.</p>)}
+      </section>
 
-          {/* Adresse */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>Adresse:</label><br />
-            <input
-              type="text"
-              value={adresse}
-              onChange={(e) => setAdresse(e.target.value)}
-              placeholder="Straße, Hausnummer, PLZ, Ort"
-              required
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
-          </div>
+      <section style={{ ...section, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Neue Hilfe-Anfrage</h2>
+        <button onClick={() => setShowModal(true)} style={btnPrimary}>Anfrage erstellen</button>
+      </section>
 
-          {/* Telefonnummer */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>Telefonnummer:</label><br />
-            <input
-              type="tel"
-              value={telefon}
-              onChange={(e) => setTelefon(e.target.value)}
-              placeholder="z.B. 0123456789"
-              required
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
-          </div>
+      <section style={section}>
+        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Offene Anfragen</h2>
+        {loadingReqs ? <p>Anfragen laden…</p> : (requests.length ? requests.map(req => renderRequest(req, expandedAll, toggleAll, false)) : <p style={{ color: '#666' }}>Keine Anfragen vorhanden.</p>)}
+      </section>
 
-          {/* Name */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>Name:</label><br />
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Vor- und Nachname"
-              required
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
-          </div>
-
-          {/* Datum/Zeit */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>Datum/Zeit:</label><br />
-            <input
-              type="datetime-local"
-              value={datumzeit}
-              onChange={(e) => setDatumzeit(e.target.value)}
-              required
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
-          </div>
-
-          {/* Beschreibung */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <label>Beschreibung:</label><br />
-            <textarea
-              value={beschreibung}
-              onChange={(e) => setBeschreibung(e.target.value)}
-              placeholder="Bitte genauer beschreiben, worum es geht…"
-              rows={3}
-              required
-              style={{ width: "100%", padding: "0.5rem" }}
-            />
-          </div>
-
-          <button type="submit" style={{ marginTop: "0.5rem" }}>
-            Anfrage absenden
-          </button>
-        </form>
-      </div>
-
-      {/* -------------------- C: Liste aller Anfragen (inkl. Antworten/Formulare) -------------------- */}
-      <div>
-        <h2>Offene Anfragen</h2>
-        {loadingReqs ? (
-          <p>Anfragen laden…</p>
-        ) : requests.length === 0 ? (
-          <p>Keine Anfragen vorhanden.</p>
-        ) : (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {requests.map((req) => (
-              <li
-                key={req.id}
-                style={{
-                  border: "1px solid #ccc",
-                  padding: "0.75rem",
-                  marginBottom: "1rem",
-                  borderRadius: "6px",
-                }}
-              >
-                {/* — Haupt‐Daten der Anfrage — */}
-                <div style={{ marginBottom: "0.5rem" }}>
-                  <strong>{req.anliegen}</strong>{" "}
-                  <span style={{ color: "#888", fontSize: "0.9rem" }}>
-                    ({new Date(req.datumzeit).toLocaleString()})
-                  </span>
-                  <p style={{ margin: "0.5rem 0" }}>
-                    <em>Von:</em> {req.name} &bull;{" "}
-                    <em>Tel.:</em> {req.telefon} <br />
-                    <em>Adresse:</em> {req.adresse}
-                  </p>
-                  <p>{req.beschreibung}</p>
-                  <p style={{ color: "#aaa", fontSize: "0.8rem" }}>
-                    Erfasst: {new Date(req.timestamp).toLocaleString()}
-                  </p>
-                </div>
-
-                {/* — Bereits vorhandene Antworten unter dieser Anfrage — */}
-                <div style={{ marginTop: "0.75rem", paddingLeft: "1rem" }}>
-                  <h3 style={{ marginBottom: "0.5rem" }}>Antworten</h3>
-                  {req.answers.length === 0 ? (
-                    <p style={{ color: "#666" }}>Keine Antworten bisher.</p>
-                  ) : (
-                    <ul style={{ listStyle: "none", padding: 0 }}>
-                      {req.answers.map((ans, idx) => (
-                        <li
-                          key={idx}
-                          style={{
-                            border: "1px solid #ddd",
-                            background: "#fafafa",
-                            padding: "0.5rem",
-                            marginBottom: "0.5rem",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          <strong>{ans.username}</strong>{" "}
-                          <span style={{ color: "#888", fontSize: "0.8rem" }}>
-                            {new Date(ans.timestamp).toLocaleString()}
-                          </span>
-                          <p style={{ margin: "0.5rem 0 0 0" }}>{ans.content}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* — Formular für neue Antwort unter dieser Anfrage — */}
-                <div style={{ marginTop: "0.5rem", paddingLeft: "1rem" }}>
-                  <textarea
-                    value={answerTexts[req.id] || ""}
-                    onChange={(e) =>
-                      setAnswerTexts((prev) => ({
-                        ...prev,
-                        [req.id]: e.target.value,
-                      }))
-                    }
-                    placeholder="Hier deine Antwort schreiben…"
-                    rows={2}
-                    style={{ width: "100%", padding: "0.5rem" }}
-                  />
-                  <button
-                    onClick={() => handleSubmitAnswer(req.id)}
-                    style={{ marginTop: "0.25rem" }}
-                  >
-                    Antwort absenden
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {showModal && (
+        <Modal onClose={() => setShowModal(false)}>
+          <PostForm onSubmit={() => setShowModal(false)} setRequests={setRequests} requests={requests} user={user} />
+        </Modal>
+      )}
     </div>
   );
 }
-
-export default Dashboard;

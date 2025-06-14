@@ -1,6 +1,8 @@
 # HCAD
 # Set up
 - navigate to HCAD/backend
+- execute Activate.ps1 in venv/Scripts
+- set mongoDB url $env:MONGODB_URL = "mongodb://user:pass@host:27017/mydb"
 - execute setup.ps1 in shell
     - if doesn't work run "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass"
     - run again
