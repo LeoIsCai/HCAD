@@ -192,6 +192,8 @@ def register_routes(app):
         if res.matched_count != 1:
             return jsonify({"message": "Anfrage nicht gefunden"}), 404
         return jsonify({"message": "Antwort erfolgreich hinzugefügt"}), 200
+    
+app = create_app()
 
 # --- Run Application ---
 if __name__ == "__main__":
