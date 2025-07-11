@@ -126,36 +126,49 @@ function Calendar({ user, onLogout }) {
   const handleEventSubmit = async (e) => {
     e.preventDefault();
     if (!newEvent.title.trim()) {
-      alert("Bitte geben Sie einen Titel ein.");
-      return;
-    }
-    let payload = { ...newEvent };
-    if (!payload.end || payload.end === payload.start) {
-      const d = new Date(payload.start);
-      d.setHours(23, 59);
-      payload.end = d.toISOString().slice(0,16);
-    }
-    try {
-      const res = await fetch(`${API}/calendar`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        setShowModal(false);
-        setNewEvent({ title: '', start: '', end: '', recurring: false, recurring_type: 'none' });
-        fetchEvents();
-      } else {
-        const error = await res.json();
-        alert(error.message);
-      }
-    } catch (err) {
-      console.error("Fehler beim Erstellen des Termins:", err);
-      alert("Termin konnte nicht erstellt werden.");
-    }
+    alert("Bitte geben Sie einen Titel ein.");
+    return;
+  }
+  if (!newEvent.date || !newEvent.start || !newEvent.end) {
+    alert("Bitte Datum, Start- und Endzeit ausfüllen.");
+    return;
+  }
+  const startISO = `${newEvent.date}T${newEvent.start}`;
+  const endISO   = `${newEvent.date}T${newEvent.end}`;
+  const payload = {
+    title: newEvent.title,
+    start: startISO,
+    end:   endISO,
+    recurring: newEvent.recurring,
+    recurring_type: newEvent.recurring_type
   };
+  try {
+    const res = await fetch(`${API}/calendar`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      setShowModal(false);
+      setNewEvent({
+        title: '',
+        date: '',
+        start: '',
+        end: '',
+        recurring: false,
+        recurring_type: 'none'
+      });
+      fetchEvents();
+    } else {
+      const error = await res.json();
+      alert(error.message);
+    }
+  } catch (err) {
+    console.error("Fehler beim Erstellen des Termins:", err);
+    alert("Termin konnte nicht erstellt werden.");
+  }
+};
 
   const handleEventClick = (clickInfo) => {
     const evt = clickInfo.event;
