@@ -116,3 +116,62 @@
 .ledger-item:last-child {
   border-bottom: none;
 }
+
+.filters-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 800px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.filters-section h2 {
+  text-align: center;
+  margin-bottom: 16px;
+  font-size: 22px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.filter-input {
+  flex: 1 1 140px;       /* flexibel, aber mind. 140px */
+  max-width: 180px;
+  padding: 10px 12px;
+  font-size: 16px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  transition: border-color 0.2s;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #69B8B3;
+  box-shadow: 0 0 0 3px rgba(105, 184, 179, 0.2);
+}
+
+
+.filter-input[type="datetime-local"] {
+  max-width: 220px;
+}
+
+.filter-button {
+  margin-top: 4px;
+  padding: 10px 16px;
+  background: #69B8B3;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.filter-button:hover {
+  background: #5aa29d;
+}

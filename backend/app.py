@@ -118,7 +118,7 @@ def user_profile():
     
         if "email" in data:
             update_fields["email"] = data["email"]
-            
+
         if "first_name" in data:
             update_fields["first_name"] = data["first_name"]
         if "last_name" in data:
@@ -193,7 +193,9 @@ def get_requests():
             "id": str(doc["_id"]),           # String-Version der ID
             "username": doc["username"],
             "anliegen": doc["anliegen"],
-            "adresse": doc["adresse"],
+            "street":    doc.get("street", ""),
+            "postcode":  doc.get("postcode", ""),
+            "city":      doc.get("city", ""),
             "telefon": doc["telefon"],
             "name": doc["name"],
             "datumzeit": doc["datumzeit"],   # ISO-String vom Frontend
@@ -224,24 +226,28 @@ def create_request():
 
     # Felder aus JSON extrahieren
     anliegen    = data.get("anliegen", "").strip()
-    adresse     = data.get("adresse", "").strip()
+    street   = data.get("street", "").strip()
+    postcode = data.get("postcode", "").strip()
+    city     = data.get("city", "").strip()
     telefon     = data.get("telefon", "").strip()
     name        = data.get("name", "").strip()
     datumzeit   = data.get("datumzeit", "").strip()  # ISO‐String vom Frontend
     beschreibung = data.get("beschreibung", "").strip()
 
     # Validierung: alle Felder müssen zumindest nicht leer sein
-    if not (anliegen and adresse and telefon and name and datumzeit and beschreibung):
+    if not (anliegen and street and postcode and city and telefon and name and datumzeit and beschreibung):
         return jsonify({"message": "Bitte fülle alle Felder aus"}), 400
 
     # Neuen Request in MongoDB speichern
     req_doc = {
         "username": session["user"],
         "anliegen": anliegen,
-        "adresse": adresse,
-        "telefon": telefon,
-        "name": name,
-        "datumzeit": datumzeit,      # Frontend liefert ISO-8601
+        "street":   street,
+        "postcode": postcode,
+        "city":     city,
+        "telefon":  telefon,
+        "name":     name,
+        "datumzeit": datumzeit,
         "beschreibung": beschreibung,
         "timestamp": datetime.utcnow(),
         "answers": []
@@ -347,6 +353,5 @@ def delete_event(event_id):
     else:
         return jsonify({"message": "Termin nicht gefunden"}), 404
 
-# --- Run Application ---
 if __name__ == "__main__":
     app.run(debug=True)

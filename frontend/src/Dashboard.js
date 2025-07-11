@@ -14,6 +14,12 @@ export default function Dashboard({ user, onLogout }) {
   const [expandedAll, setExpandedAll] = useState({});
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [filterAnliegen, setFilterAnliegen] = useState('');
+  const [filterCity, setFilterCity]     = useState('');
+  const [filterStreet, setFilterStreet] = useState('');
+  const [filterPostcode, setFilterPostcode] = useState('');
+  const [filterDatumzeit, setFilterDatumzeit] = useState('');
+  const [filteredOthers, setFilteredOthers] = useState([]);
   const navigate = useNavigate();
   const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
@@ -35,6 +41,10 @@ export default function Dashboard({ user, onLogout }) {
       }
     })();
   }, [API, navigate]);
+  useEffect(() => {
+  const others = requests.filter(r => r.username !== user);
+  setFilteredOthers(others);
+  }, [requests, user]);
 
   useEffect(() => {
     (async () => {
@@ -49,6 +59,23 @@ export default function Dashboard({ user, onLogout }) {
       }
     })();
   }, [API, navigate]);
+
+  // const dateFilter = filterDatumzeit;
+  // const otherRequests = requests.filter(r => r.username !== user);
+
+  // const filteredOthers = otherRequests.filter(req => {
+  
+  //   const reqDate = req.datumzeit.slice(0,10);
+
+  //   return (
+  //     (!filterAnliegen    || req.anliegen.toLowerCase().includes(filterAnliegen.toLowerCase())) &&
+  //     (!filterCity        || req.city.toLowerCase().includes(filterCity.toLowerCase())) &&
+  //     (!filterStreet      || req.street.toLowerCase().includes(filterStreet.toLowerCase())) &&
+  //     (!filterPostcode    || req.postcode.includes(filterPostcode)) &&
+  //     (!dateFilter        || reqDate === dateFilter)
+  //   );
+  // });
+
 
   const handleDeleteRequest = async id => {
     if (!window.confirm('Möchtest du diese Anfrage wirklich löschen?')) return;
@@ -109,7 +136,10 @@ export default function Dashboard({ user, onLogout }) {
         <div className="dashboard-expanded-box">
           <p><strong>Von:</strong> {req.name}</p>
           <p><strong>Telefon:</strong> {req.telefon}</p>
-          <p><strong>Adresse:</strong> {req.adresse}</p>
+          <p><strong>Straße:</strong> {req.street}</p>
+          <p><strong>PLZ:</strong> {req.postcode}</p>
+          <p><strong>Ort:</strong> {req.city}</p>
+          <p><strong>Wann:</strong> {new Date(req.datumzeit).toLocaleString()}</p>
           <p style={{ marginTop: '10px' }}>{req.beschreibung}</p>
           <p style={{ marginTop: '8px', fontSize: '12px', color: '#999' }}>Erfasst am {new Date(req.timestamp).toLocaleString()}</p>
           <div style={{ marginTop: '12px' }}>
@@ -169,6 +199,7 @@ export default function Dashboard({ user, onLogout }) {
           }
         ]}
       />
+      
       <section className="dashboard-section ledger-section">
        <h2>Anstehende Termine</h2>
        {loadingEvents
@@ -193,24 +224,85 @@ export default function Dashboard({ user, onLogout }) {
         {loadingReqs
           ? <p>Lade deine Anfragen…</p>
           : (myRequests.length
-            ? myRequests.map(req => renderRequest(req, expandedMy, toggleMy, true))
-            : <p style={{ color: '#666' }}>Keine offenen Anfragen.</p>
-          )}
+              ? myRequests.map(req => renderRequest(req, expandedMy, toggleMy, true))
+              : <p style={{ color: '#666' }}>Keine offenen Anfragen.</p>
+            )
+        }
       </section>
 
       <section className="dashboard-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Neue Hilfe-Anfrage</h2>
         <button onClick={() => setShowModal(true)} className="dashboard-btn-primary">Anfrage erstellen</button>
       </section>
-
+      <section className="dashboard-section filters-section">
+        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Filter</h2>
+        <div className="filters">
+          <input
+            type="text"
+            placeholder="Titel"
+            value={filterAnliegen}
+            onChange={e => setFilterAnliegen(e.target.value)}
+            className="filter-input"
+          />
+          <input
+            type="text"
+            placeholder="Stadt"
+            value={filterCity}
+            onChange={e => setFilterCity(e.target.value)}
+            className="filter-input"
+          />
+          <input
+            type="text"
+            placeholder="Straße"
+            value={filterStreet}
+            onChange={e => setFilterStreet(e.target.value)}
+            className="filter-input"
+          />
+          <input
+            type="text"
+            placeholder="PLZ"
+            value={filterPostcode}
+            onChange={e => setFilterPostcode(e.target.value)}
+            className="filter-input"
+          />
+          <input
+            type="date"
+            placeholder="Datum"
+            value={filterDatumzeit}
+            onChange={e => setFilterDatumzeit(e.target.value)}
+            className="filter-input"
+          />
+        </div>
+        <button
+          onClick={() => {
+            // 3) Filter-Logik inlined
+            const others = requests.filter(r => r.username !== user);
+            const df = filterDatumzeit;
+            const res = others.filter(req => {
+              const reqDate = req.datumzeit.slice(0,10);
+              return (
+                (!filterAnliegen    || req.anliegen.toLowerCase().includes(filterAnliegen.toLowerCase())) &&
+                (!filterCity        || req.city.toLowerCase().includes(filterCity.toLowerCase())) &&
+                (!filterStreet      || req.street.toLowerCase().includes(filterStreet.toLowerCase())) &&
+                (!filterPostcode    || req.postcode.includes(filterPostcode)) &&
+                (!df                || reqDate === df)
+              );
+            });
+            setFilteredOthers(res);
+          }}
+          className="filter-button"
+        >
+          Filter anwenden
+        </button>
+      </section>
       <section className="dashboard-section">
-        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Offene Anfragen</h2>
         {loadingReqs
           ? <p>Anfragen laden…</p>
-          : (requests.length
-            ? requests.map(req => renderRequest(req, expandedAll, toggleAll, false))
-            : <p style={{ color: '#666' }}>Keine Anfragen vorhanden.</p>
-          )}
+          : (filteredOthers.length
+              ? filteredOthers.map(req => renderRequest(req, expandedAll, toggleAll, false))
+              : <p style={{ color: '#666' }}>Keine Anfragen vorhanden.</p>
+            )
+        }
       </section>
 
       {showModal && (
