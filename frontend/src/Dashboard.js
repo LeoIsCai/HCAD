@@ -1,8 +1,9 @@
-// src/components/Dashboard.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Modal from './Modal';
 import PostForm from './PostForm';
+import './Dashboard.css';
+import Topbar from './Topbar';
 
 export default function Dashboard({ user, onLogout }) {
   const [requests, setRequests] = useState([]);
@@ -11,8 +12,29 @@ export default function Dashboard({ user, onLogout }) {
   const [showModal, setShowModal] = useState(false);
   const [expandedMy, setExpandedMy] = useState({});
   const [expandedAll, setExpandedAll] = useState({});
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
   const navigate = useNavigate();
   const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+
+  useEffect(() => {
+    document.title = 'Dashboard | Remedy';
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API}/calendar`, { credentials: 'include' });
+        if (res.status === 401) return navigate('/');
+        const data = await res.json();
+        setEvents(data);
+      } catch (err) {
+        console.error("Fehler beim Laden der Termine:", err);
+      } finally {
+        setLoadingEvents(false);
+      }
+    })();
+  }, [API, navigate]);
 
   useEffect(() => {
     (async () => {
@@ -28,7 +50,6 @@ export default function Dashboard({ user, onLogout }) {
     })();
   }, [API, navigate]);
 
-  // Delete a request
   const handleDeleteRequest = async id => {
     if (!window.confirm('Möchtest du diese Anfrage wirklich löschen?')) return;
     try {
@@ -70,25 +91,22 @@ export default function Dashboard({ user, onLogout }) {
     }
   };
 
-  // Styles
-  const container = { minHeight: '100vh', background: '#f5f5f5', paddingTop: '80px' };
-  const topBar = { position: 'fixed', top: 0, left: 0, right: 0, height: '60px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 100 };
-  const navBtn = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '8px 12px' };
-  const section = { maxWidth: '800px', margin: '20px auto', background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' };
-  const card = { marginBottom: '15px' };
-  const btnPrimary = { background: '#1f93ff', color: '#fff', padding: '10px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' };
-  const btnToggle = { background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px' };
+  const now = new Date();
+   const upcoming = events
+    .map(e => ({ ...e, startDate: new Date(e.start) }))
+    .filter(e => e.startDate >= now)
+    .sort((a, b) => a.startDate - b.startDate);
 
   const renderRequest = (req, expanded, toggleFn, showDelete) => (
-    <div key={req.id} style={card}>
+    <div key={req.id} className="dashboard-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{req.anliegen}</h3>
-        <button onClick={() => toggleFn(req.id)} style={btnToggle}>
+        <button onClick={() => toggleFn(req.id)} className="dashboard-btn-toggle">
           {expanded[req.id] ? '▼' : '▶'}
         </button>
       </div>
       {expanded[req.id] && (
-        <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #eee', borderRadius: '4px', position: 'relative' }}>
+        <div className="dashboard-expanded-box">
           <p><strong>Von:</strong> {req.name}</p>
           <p><strong>Telefon:</strong> {req.telefon}</p>
           <p><strong>Adresse:</strong> {req.adresse}</p>
@@ -97,8 +115,13 @@ export default function Dashboard({ user, onLogout }) {
           <div style={{ marginTop: '12px' }}>
             <h4 style={{ margin: '0 0 8px 0' }}>Antworten:</h4>
             {req.answers.length ? req.answers.map((ans, i) => (
-              <div key={i} style={{ background: '#f9f9f9', padding: '8px', borderRadius: '4px', marginBottom: '8px' }}>
-                <p style={{ margin: 0, fontSize: '14px' }}><strong>{ans.username}</strong> <span style={{ fontSize: '12px', color: '#888' }}>{new Date(ans.timestamp).toLocaleString()}</span></p>
+              <div key={i} className="dashboard-answer">
+                <p style={{ margin: 0, fontSize: '14px' }}>
+                  <strong>{ans.username}</strong>
+                  <span style={{ fontSize: '12px', color: '#888', marginLeft: '8px' }}>
+                    {new Date(ans.timestamp).toLocaleString()}
+                  </span>
+                </p>
                 <p style={{ margin: '4px 0 0 0', fontSize: '14px' }}>{ans.content}</p>
               </div>
             )) : <p style={{ fontSize: '14px', color: '#666' }}>Keine Antworten.</p>}
@@ -107,14 +130,16 @@ export default function Dashboard({ user, onLogout }) {
               onChange={e => setAnswerTexts(prev => ({ ...prev, [req.id]: e.target.value }))}
               placeholder="Deine Antwort…"
               rows={2}
-              style={{ width: '100%', padding: '8px', marginTop: '6px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+              className="dashboard-textarea"
             />
-            <button onClick={() => handleSubmitAnswer(req.id)} style={{ ...btnPrimary, marginTop: '6px' }}>Absenden</button>
+            <button onClick={() => handleSubmitAnswer(req.id)} className="dashboard-btn-primary" style={{ marginTop: '6px' }}>
+              Absenden
+            </button>
           </div>
           {showDelete && (
             <button
               onClick={() => handleDeleteRequest(req.id)}
-              style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'red', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer' }}
+              className="dashboard-delete-btn"
             >
               Löschen
             </button>
@@ -125,28 +150,67 @@ export default function Dashboard({ user, onLogout }) {
   );
 
   return (
-    <div style={container}>
-      <div style={topBar}>
-        <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Dein Dashboard</h1>
-        <div>
-          <button onClick={() => navigate('/account')} style={navBtn}>Mein Account</button>
-          <button onClick={onLogout} style={{ ...navBtn, color: 'red' }}>Logout</button>
-        </div>
-      </div>
-
-      <section style={section}>
-        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Deine Übersichten</h2>
-        {loadingReqs ? <p>Lade deine Anfragen…</p> : (myRequests.length ? myRequests.map(req => renderRequest(req, expandedMy, toggleMy, true)) : <p style={{ color: '#666' }}>Keine offenen Anfragen.</p>)}
+    <div className="dashboard-container">
+      <Topbar
+        title="Dein Dashboard"
+        actions={[
+          {
+            label: 'Kalender',
+            onClick: () => navigate('/calendar'),
+          },
+          {
+            label: 'Mein Account',
+            onClick: () => navigate('/account'),
+          },
+          {
+            label: 'Logout',
+            onClick: onLogout,
+            type: 'danger'
+          }
+        ]}
+      />
+      <section className="dashboard-section ledger-section">
+       <h2>Anstehende Termine</h2>
+       {loadingEvents
+         ? <p>Lade Termine…</p>
+         : upcoming.length > 0
+           ? <ul className="ledger-list">
+               {upcoming.map(evt => (
+                 <li key={evt.id} className="ledger-item">
+                   <strong>{evt.title}</strong><br/>
+                   {evt.startDate.toLocaleString('de-DE', {
+                     dateStyle: 'short',
+                     timeStyle: 'short'
+                   })}
+                 </li>
+               ))}
+             </ul>
+           : <p style={{ color: '#666' }}>Keine anstehenden Termine.</p>
+       }
+     </section>
+      <section className="dashboard-section">
+        <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Deine Anfragen</h2>
+        {loadingReqs
+          ? <p>Lade deine Anfragen…</p>
+          : (myRequests.length
+            ? myRequests.map(req => renderRequest(req, expandedMy, toggleMy, true))
+            : <p style={{ color: '#666' }}>Keine offenen Anfragen.</p>
+          )}
       </section>
 
-      <section style={{ ...section, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <section className="dashboard-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>Neue Hilfe-Anfrage</h2>
-        <button onClick={() => setShowModal(true)} style={btnPrimary}>Anfrage erstellen</button>
+        <button onClick={() => setShowModal(true)} className="dashboard-btn-primary">Anfrage erstellen</button>
       </section>
 
-      <section style={section}>
+      <section className="dashboard-section">
         <h2 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 600 }}>Offene Anfragen</h2>
-        {loadingReqs ? <p>Anfragen laden…</p> : (requests.length ? requests.map(req => renderRequest(req, expandedAll, toggleAll, false)) : <p style={{ color: '#666' }}>Keine Anfragen vorhanden.</p>)}
+        {loadingReqs
+          ? <p>Anfragen laden…</p>
+          : (requests.length
+            ? requests.map(req => renderRequest(req, expandedAll, toggleAll, false))
+            : <p style={{ color: '#666' }}>Keine Anfragen vorhanden.</p>
+          )}
       </section>
 
       {showModal && (

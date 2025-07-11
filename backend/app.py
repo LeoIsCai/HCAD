@@ -1,201 +1,352 @@
 from flask import Flask, request, session, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
-from bson import ObjectId
-from datetime import datetime
+from bson import ObjectId, SON
 import os
+from datetime import datetime
+#from dotenv import load_dotenv
 
-# --- Application Factory ---
-def create_app():
-    app = Flask(__name__)
-    app.secret_key = os.getenv("SECRET_KEY", "johnpork")
-    app.config.update(
-        SESSION_COOKIE_SAMESITE="None",
-        SESSION_COOKIE_SECURE=True
-    )
+#load_dotenv() # Loads MongoDB-URL from .env
 
-    # CORS setup: erlaubt Preflight-OPTIONS global
-    CORS(
-        app,
-        supports_credentials=True,
-        resources={r"/*": {"origins": [
-            "http://localhost:3000",
-            r"https://.*\.vercel\.app"
-        ]}}
-    )
-
-    # MongoDB connection
-    mongodb_url = os.getenv("MONGODB_URL")
-    if not mongodb_url:
-        raise RuntimeError("MONGODB_URL is not set!")
-    client = MongoClient(mongodb_url)
-    db = client.hcad
-    app.collections = {
-        'users': db.users,
-        'posts': db.posts,
-        'requests': db.requests
+app = Flask(__name__)
+app.secret_key = "johnpork"
+app.config.update(
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=True
+)
+CORS(
+    app,
+    supports_credentials=True,
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",           
+                 r"https://.*\.vercel\.app"
+            ]
+        }
     }
+)
+MONGODB_URL = os.getenv("MONGODB_URL")
+if not MONGODB_URL:
+    raise RuntimeError("MONGODB_URL nicht gesetzt!")
 
-    # Register all routes
-    register_routes(app)
-    return app
+client = MongoClient(MONGODB_URL)
+db = client.hcad                  
+users_coll = db.users  
 
-# --- Helper Decorator ---
-def require_login(fn):
-    from functools import wraps
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        # Allow CORS preflight without session
-        if request.method == 'OPTIONS':
-            return ('', 200)
-        if 'user' not in session:
-            return jsonify({"message": "Nicht angemeldet"}), 401
-        return fn(*args, **kwargs)
-    return wrapper
+requests_coll = db.requests
+posts_coll = db.posts
+events_coll = db.events
 
-# --- Route Definitions ---
-def register_routes(app):
-    users = app.collections['users']
-    posts = app.collections['posts']
-    reqs  = app.collections['requests']
 
-    # Registration
-    @app.route('/register', methods=['OPTIONS', 'POST'])
-    def register():
-        if request.method == 'OPTIONS':
-            return '', 200
-        data = request.get_json(silent=True) or {}
-        username = data.get('username', '').strip()
-        password = data.get('password', '').strip()
-        if not username or not password:
-            return jsonify({"message": "Username und Passwort erforderlich"}), 400
-        if users.find_one({'username': username}):
-            return jsonify({"message": "Username existiert bereits"}), 400
-        users.insert_one({'username': username, 'password': password})
-        return jsonify({"message": "Account erfolgreich erstellt"}), 200
+@app.route("/register", methods=["POST", "OPTIONS"])
+def register():
+    if request.method == "OPTIONS":
+        
+        return ("", 200)
+    data = request.get_json()
+    required = ("username","password","first_name","last_name","age","gender")
+    if not all(k in data and data[k] for k in required):
+        return jsonify({"message": "Alle Felder sind erforderlich."}), 400
 
-    # Login
-    @app.route('/login', methods=['POST'])
-    def login():
-        data = request.get_json(silent=True) or {}
-        username = data.get('username', '').strip()
-        password = data.get('password', '').strip()
-        if not username or not password:
-            return jsonify({"message": "Username und Passwort erforderlich"}), 400
-        user_doc = users.find_one({'username': username})
-        if user_doc and user_doc.get('password') == password:
-            session['user'] = username
-            return jsonify({"message": "Login erfolgreich", "user": username}), 200
-        return jsonify({"message": "Ungültige Anmelde­daten"}), 401
+    if users_coll.find_one({"username": data["username"]}):
+        return jsonify({"message": "Username existiert bereits."}), 400
 
-    # Logout
-    @app.route('/logout', methods=['OPTIONS', 'POST'])
-    @require_login
-    def logout():
-        session.pop('user', None)
-        return jsonify({"message": "Abgemeldet"}), 200
+    new_user = {
+        "username":    data["username"],
+        "password":    data["password"],
+        "first_name":  data["first_name"],
+        "last_name":   data["last_name"],
+        "age":         int(data["age"]),
+        "gender":      data["gender"]
+    }
+    users_coll.insert_one(new_user)
+    return jsonify({"message": "Account erfolgreich erstellt."}), 201
 
-    # Check session
-    @app.route('/check-login', methods=['GET'])
-    def check_login():
-        if 'user' in session:
-            return jsonify({"logged_in": True, "user": session['user']}), 200
-        return jsonify({"logged_in": False}), 200
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
 
-    # User profile
-    @app.route('/user', methods=['OPTIONS', 'GET', 'PUT'])
-    @require_login
-    def user_profile():
-        if request.method == 'OPTIONS':
-            return '', 200
-        username = session['user']
-        if request.method == 'GET':
-            user_doc = users.find_one({'username': username}, {'_id': 0, 'password': 0})
-            if user_doc:
-                return jsonify(user_doc), 200
-            return jsonify({"message": "User nicht gefunden"}), 404
-        # PUT: update profile
-        data = request.get_json(silent=True) or {}
-        update = {}
-        for f in ('password', 'email', 'fullname'):
-            if data.get(f): update[f] = data[f]
-        if not update:
-            return jsonify({"message": "Keine Felder zum Aktualisieren übergeben"}), 400
-        res = users.update_one({'username': username}, {'$set': update})
-        if res.matched_count:
-            return jsonify({"message": "Profil aktualisiert"}), 200
-        return jsonify({"message": "Update fehlgeschlagen"}), 500
+    if not username or not password:
+        return jsonify({"message": "Username und Passwort erforderlich"}), 400
 
-    # Posts
-    @app.route('/posts', methods=['OPTIONS', 'GET', 'POST'])
-    @require_login
-    def handle_posts():
-        if request.method == 'OPTIONS':
-            return '', 200
-        if request.method == 'GET':
-            all_posts = list(posts.find({}, {'_id': 0}).sort('timestamp', -1))
-            return jsonify(all_posts), 200
-        data = request.get_json(silent=True) or {}
-        content = data.get('content', '').strip()
-        if not content:
-            return jsonify({"message": "Beitrag darf nicht leer sein"}), 400
-        posts.insert_one({'username': session['user'], 'content': content, 'timestamp': datetime.utcnow()})
-        return jsonify({"message": "Beitrag erstellt"}), 200
-
-    # Help requests
-    @app.route('/requests', methods=['OPTIONS', 'GET', 'POST'])
-    @require_login
-    def handle_requests():
-        if request.method == 'OPTIONS':
-            return '', 200
-        if request.method == 'GET':
-            results = []
-            for doc in reqs.find({}, {'__v': 0}).sort('timestamp', -1):
-                answers = [
-                    {'username': a['username'], 'content': a['content'], 'timestamp': a['timestamp'].isoformat()}
-                    for a in doc.get('answers', [])
-                ]
-                results.append({
-                    'id': str(doc['_id']), 'username': doc['username'],
-                    'anliegen': doc['anliegen'], 'adresse': doc['adresse'],
-                    'telefon': doc['telefon'], 'name': doc['name'],
-                    'datumzeit': doc['datumzeit'], 'beschreibung': doc['beschreibung'],
-                    'timestamp': doc['timestamp'].isoformat(), 'answers': answers
-                })
-            return jsonify(results), 200
-        # POST
-        data = request.get_json(silent=True) or {}
-        fields = ('anliegen','adresse','telefon','name','datumzeit','beschreibung')
-        if not all(data.get(f, '').strip() for f in fields):
-            return jsonify({"message": "Bitte fülle alle Felder aus"}), 400
-        req_doc = {f: data[f].strip() for f in fields}
-        req_doc.update({'username': session['user'], 'timestamp': datetime.utcnow(), 'answers': []})
-        new_id = reqs.insert_one(req_doc).inserted_id
-        return jsonify({"message": "Anfrage erfolgreich erstellt", "id": str(new_id)}), 200
-
-    # Add answer
-    @app.route('/requests/<string:req_id>/answers', methods=['OPTIONS', 'POST'])
-    @require_login
-    def add_answer(req_id):
-        if request.method == 'OPTIONS':
-            return '', 200
-        data = request.get_json(silent=True) or {}
-        content = data.get('content', '').strip()
-        if not content:
-            return jsonify({"message": "Antwort darf nicht leer sein"}), 400
-        try:
-            oid = ObjectId(req_id)
-        except Exception:
-            return jsonify({"message": "Ungültige Anfrage‐ID"}), 400
-        answer = {'username': session['user'], 'content': content, 'timestamp': datetime.utcnow()}
-        res = reqs.update_one({'_id': oid}, {'$push': {'answers': answer}})
-        if res.matched_count != 1:
-            return jsonify({"message": "Anfrage nicht gefunden"}), 404
-        return jsonify({"message": "Antwort erfolgreich hinzugefügt"}), 200
+    user_doc = users_coll.find_one({"username": username})
+    if user_doc and user_doc.get("password") == password:
+        session["user"] = username
+        return jsonify({"message": "Login erfolgreich", "user": username}), 200
+    else:
+        return jsonify({"message": "Ungültige Anmeldedaten"}), 401
     
-app = create_app()
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.pop("user", None)
+    return jsonify({"message": "Abgemeldet"}), 200
+
+@app.route("/check-login", methods=["GET"])
+def check_login():
+    if "user" in session:
+        return jsonify({"logged_in": True, "user": session["user"]}), 200
+    else:
+        return jsonify({"logged_in": False}), 200
+    
+@app.route("/user", methods=["GET", "PUT", "OPTIONS"])
+def user_profile():
+    if request.method == "OPTIONS":
+        return ("", 200)
+
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+
+    username = session["user"]
+
+    if request.method == "GET":
+        user_doc = users_coll.find_one({"username": username}, {"_id": 0, "password": 0})
+       
+        if user_doc:
+            return jsonify(user_doc), 200
+        else:
+            return jsonify({"message": "User nicht gefunden"}), 404
+
+    if request.method == "PUT":
+        data = request.get_json()
+        
+        update_fields = {}
+        if "password" in data and data["password"]:
+            update_fields["password"] = data["password"]
+    
+        if "email" in data:
+            update_fields["email"] = data["email"]
+            
+        if "first_name" in data:
+            update_fields["first_name"] = data["first_name"]
+        if "last_name" in data:
+            update_fields["last_name"] = data["last_name"]
+        
+        if "age" in data and data["age"] != "":
+            try:
+                update_fields["age"] = int(data["age"])
+            except ValueError:
+                return jsonify({"message": "Alter muss eine Zahl sein"}), 400
+        if "gender" in data:
+            update_fields["gender"] = data["gender"]
+
+        if not update_fields:
+            return jsonify({"message": "Keine Felder zum Aktualisieren übergeben"}), 400
+
+        result = users_coll.update_one(
+            {"username": username},
+            {"$set": update_fields}
+        )
+        if result.matched_count == 1:
+            return jsonify({"message": "Profil aktualisiert"}), 200
+        else:
+            return jsonify({"message": "Update fehlgeschlagen"}), 500
+    return jsonify({"message": "Methode nicht erlaubt"}), 405
+
+@app.route("/posts", methods=["GET", "OPTIONS"])
+def get_posts():
+    if request.method == "OPTIONS":
+        return ("", 200)
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+
+    cursor = posts_coll.find({}, {"_id": 0}).sort("timestamp", -1)
+    posts = list(cursor)
+    return jsonify(posts), 200
+
+@app.route("/posts", methods=["POST", "OPTIONS"])
+def create_post():
+    if request.method == "OPTIONS":
+        return ("", 200)
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+
+    data = request.get_json()
+    content = data.get("content", "").strip()
+    if not content:
+        return jsonify({"message": "Beitrag darf nicht leer sein"}), 400
+
+    post_doc = {
+        "username": session["user"],
+        "content": content,
+        "timestamp": datetime.utcnow()
+    }
+    posts_coll.insert_one(post_doc)
+    return jsonify({"message": "Beitrag erstellt"}), 200
+
+@app.route("/requests", methods=["GET", "OPTIONS"])
+def get_requests():
+    if request.method == "OPTIONS":
+        return ("", 200)
+
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+
+    # Alle Dokumente abrufen, _id in String umwandeln, inkl. Feld "answers"
+    cursor = requests_coll.find({}, {"__v": 0}).sort("timestamp", -1)
+    all_reqs = []
+    for doc in cursor:
+        # doc ist ein Python‐Dict mit "_id" als ObjectId – wandeln wir um:
+        req = {
+            "id": str(doc["_id"]),           # String-Version der ID
+            "username": doc["username"],
+            "anliegen": doc["anliegen"],
+            "adresse": doc["adresse"],
+            "telefon": doc["telefon"],
+            "name": doc["name"],
+            "datumzeit": doc["datumzeit"],   # ISO-String vom Frontend
+            "beschreibung": doc["beschreibung"],
+            "timestamp": doc["timestamp"].isoformat(),  # für Klarheit
+            "answers": []
+        }
+        # Antworten (falls vorhanden) hinzufügen, auch _id nicht erforderlich
+        if "answers" in doc and isinstance(doc["answers"], list):
+            for ans in doc["answers"]:
+                req["answers"].append({
+                    "username": ans.get("username"),
+                    "content": ans.get("content"),
+                    "timestamp": ans.get("timestamp").isoformat()
+                })
+        all_reqs.append(req)
+    return jsonify(all_reqs), 200
+
+@app.route("/requests", methods=["POST", "OPTIONS"])
+def create_request():
+    if request.method == "OPTIONS":
+        return ("", 200)
+
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+
+    data = request.get_json()
+
+    # Felder aus JSON extrahieren
+    anliegen    = data.get("anliegen", "").strip()
+    adresse     = data.get("adresse", "").strip()
+    telefon     = data.get("telefon", "").strip()
+    name        = data.get("name", "").strip()
+    datumzeit   = data.get("datumzeit", "").strip()  # ISO‐String vom Frontend
+    beschreibung = data.get("beschreibung", "").strip()
+
+    # Validierung: alle Felder müssen zumindest nicht leer sein
+    if not (anliegen and adresse and telefon and name and datumzeit and beschreibung):
+        return jsonify({"message": "Bitte fülle alle Felder aus"}), 400
+
+    # Neuen Request in MongoDB speichern
+    req_doc = {
+        "username": session["user"],
+        "anliegen": anliegen,
+        "adresse": adresse,
+        "telefon": telefon,
+        "name": name,
+        "datumzeit": datumzeit,      # Frontend liefert ISO-8601
+        "beschreibung": beschreibung,
+        "timestamp": datetime.utcnow(),
+        "answers": []
+    }
+    result = requests_coll.insert_one(req_doc)
+    return jsonify({
+        "message": "Anfrage erfolgreich erstellt",
+        "id": str(result.inserted_id)  # Geben wir direkt die neue ID zurück
+    }), 200
+
+@app.route("/requests/<string:req_id>/answers", methods=["POST", "OPTIONS"])
+def add_answer(req_id):
+    if request.method == "OPTIONS":
+        return ("", 200)
+
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+
+    data = request.get_json()
+    content = data.get("content", "").strip()
+    if not content:
+        return jsonify({"message": "Antwort darf nicht leer sein"}), 400
+
+    try:
+        obj_id = ObjectId(req_id)
+    except:
+        return jsonify({"message": "Ungültige Anfrage‐ID"}), 400
+
+    answer_doc = {
+        "username": session["user"],
+        "content": content,
+        "timestamp": datetime.utcnow()
+    }
+    result = requests_coll.update_one(
+        {"_id": obj_id},
+        {"$push": {"answers": answer_doc}}
+    )
+    if result.matched_count != 1:
+        return jsonify({"message": "Anfrage nicht gefunden"}), 404
+
+    return jsonify({"message": "Antwort erfolgreich hinzugefügt"}), 200
+
+@app.route("/calendar", methods=["GET", "OPTIONS"])
+def get_events():
+    if request.method == "OPTIONS":
+        return("", 200)
+    
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+    
+    username = session["user"]
+    cursor = events_coll.find({"username": username}, {"_id": 0})
+    events = list(cursor)
+    return jsonify(events), 200
+
+@app.route("/calendar", methods=["POST", "OPTIONS"])
+def create_event():
+    if request.method == "OPTIONS":
+        return ("", 200)
+    
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+    
+    data = request.get_json()
+    title = data.get("title", "").strip()
+    start = data.get("start", "").strip()
+    end = data.get("end", "").strip()
+    recurring = data.get("recurring", False)
+    recurring_type = data.get("recurring_type", "none")  # daily, weekly, monthly, yearly
+    
+    if not title or not start:
+        return jsonify({"message": "Titel und Startzeit erforderlich"}), 400
+    
+    event_doc = {
+        "id": str(ObjectId()),  # Generate unique ID for frontend
+        "username": session["user"],
+        "title": title,
+        "start": start,
+        "end": end if end else start,
+        "recurring": recurring,
+        "recurring_type": recurring_type,
+        "created_at": datetime.utcnow()
+    }
+    
+    events_coll.insert_one(event_doc)
+    return jsonify({"message": "Termin erfolgreich erstellt"}), 200
+
+@app.route("/calendar/<string:event_id>", methods=["DELETE", "OPTIONS"])
+def delete_event(event_id):
+    if request.method == "OPTIONS":
+        return ("", 200)
+    
+    if "user" not in session:
+        return jsonify({"message": "Nicht angemeldet"}), 401
+    
+    result = events_coll.delete_one({
+        "id": event_id,
+        "username": session["user"]
+    })
+    
+    if result.deleted_count == 1:
+        return jsonify({"message": "Termin gelöscht"}), 200
+    else:
+        return jsonify({"message": "Termin nicht gefunden"}), 404
 
 # --- Run Application ---
 if __name__ == "__main__":
-    app = create_app()
     app.run(debug=True)

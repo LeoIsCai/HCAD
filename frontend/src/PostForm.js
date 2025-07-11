@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './post_form.css';
 
 function PostForm({ onSubmit, setRequests, requests, user }) {
   const [anliegen, setAnliegen] = useState('');
@@ -17,14 +18,24 @@ function PostForm({ onSubmit, setRequests, requests, user }) {
     }
     try {
       const res = await fetch(`${API}/requests`, {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ anliegen, adresse, telefon, name, datumzeit, beschreibung }),
       });
       if (!res.ok) throw new Error((await res.json()).message);
       const { id } = await res.json();
-      const newReq = { id, username: user, anliegen, adresse, telefon, name, datumzeit, beschreibung, timestamp: new Date().toISOString(), answers: [] };
+      const newReq = {
+        id, username: user, anliegen, adresse, telefon, name, datumzeit, beschreibung,
+        timestamp: new Date().toISOString(), answers: []
+      };
       setRequests([newReq, ...requests]);
-      setAnliegen(''); setAdresse(''); setTelefon(''); setName(''); setDatumzeit(''); setBeschreibung('');
+      setAnliegen('');
+      setAdresse('');
+      setTelefon('');
+      setName('');
+      setDatumzeit('');
+      setBeschreibung('');
       onSubmit();
     } catch (err) {
       console.error(err);
@@ -32,30 +43,71 @@ function PostForm({ onSubmit, setRequests, requests, user }) {
     }
   };
 
-  const inputStyle = {
-    width: '100%', padding: '8px', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box'
-  };
-
-  const labelStyle = { display: 'block', fontWeight: '500', marginTop: '12px' };
-
   return (
-    <form onSubmit={handleSubmitRequest} style={{ display: 'flex', flexDirection: 'column' }}>
-      <label style={labelStyle}>Anliegen</label>
-      <input type="text" value={anliegen} onChange={e => setAnliegen(e.target.value)} placeholder="Einkaufshilfe" required style={inputStyle} />
-      <label style={labelStyle}>Adresse</label>
-      <input type="text" value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="Straße, Hausnummer, PLZ, Ort" required style={inputStyle} />
-      <label style={labelStyle}>Telefonnummer</label>
-      <input type="tel" value={telefon} onChange={e => setTelefon(e.target.value)} placeholder="0123456789" required style={inputStyle} />
-      <label style={labelStyle}>Name</label>
-      <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Vor- und Nachname" required style={inputStyle} />
-      <label style={labelStyle}>Datum/Zeit</label>
-      <input type="datetime-local" value={datumzeit} onChange={e => setDatumzeit(e.target.value)} required style={inputStyle} />
-      <label style={labelStyle}>Beschreibung</label>
-      <textarea value={beschreibung} onChange={e => setBeschreibung(e.target.value)} rows={3} required style={{ ...inputStyle, resize:'vertical' }} />
-      <button type="submit" style={{ marginTop: '20px', padding: '10px', background: '#1f93ff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Anfrage absenden</button>
+    <form className="postform-form" onSubmit={handleSubmitRequest}>
+      <label className="postform-label">Anliegen</label>
+      <input
+        type="text"
+        className="postform-input"
+        value={anliegen}
+        onChange={e => setAnliegen(e.target.value)}
+        placeholder="Einkaufshilfe"
+        required
+      />
+
+      <label className="postform-label">Adresse</label>
+      <input
+        type="text"
+        className="postform-input"
+        value={adresse}
+        onChange={e => setAdresse(e.target.value)}
+        placeholder="Straße, Hausnummer, PLZ, Ort"
+        required
+      />
+
+      <label className="postform-label">Telefonnummer</label>
+      <input
+        type="tel"
+        className="postform-input"
+        value={telefon}
+        onChange={e => setTelefon(e.target.value)}
+        placeholder="0123456789"
+        required
+      />
+
+      <label className="postform-label">Name</label>
+      <input
+        type="text"
+        className="postform-input"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="Vor- und Nachname"
+        required
+      />
+
+      <label className="postform-label">Datum/Zeit</label>
+      <input
+        type="datetime-local"
+        className="postform-input"
+        value={datumzeit}
+        onChange={e => setDatumzeit(e.target.value)}
+        required
+      />
+
+      <label className="postform-label">Beschreibung</label>
+      <textarea
+        className="postform-textarea"
+        value={beschreibung}
+        onChange={e => setBeschreibung(e.target.value)}
+        rows={3}
+        required
+      />
+
+      <button type="submit" className="postform-submit">
+        Anfrage absenden
+      </button>
     </form>
   );
 }
 
 export default PostForm;
-
