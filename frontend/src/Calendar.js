@@ -104,7 +104,7 @@ function Calendar({ user, onLogout }) {
     //const isoDate = date.toISOString().slice(0,10); // "YYYY-MM-DD"
     setNewEvent({
       title: '',
-      date: clickInfo.startStr,
+      date: clickInfo.dateStr,
       start: "",
       end:   '',
       recurring: false,
@@ -113,12 +113,13 @@ function Calendar({ user, onLogout }) {
    setShowModal(true);
   };
 
-  const handleDateSelect = ({ startStr, endStr }) => {
+  const handleDateSelect = ({ startStr }) => {
+    const dateOnly = startStr.slice(0,10); // "YYYY-MM-DD"
     setNewEvent({
       title: '',
-      date: startStr.slice(0,10),
-      start: startStr,
-      end: endStr || startStr,
+      date:  dateOnly,
+      start: '',
+      end:   '',
       recurring: false,
       recurring_type: 'none'
     });
@@ -127,6 +128,7 @@ function Calendar({ user, onLogout }) {
 
   const handleEventSubmit = async (e) => {
     e.preventDefault();
+    console.log("▶ newEvent before validation:", newEvent);
     if (!newEvent.title.trim()) {
     alert("Bitte geben Sie einen Titel ein.");
     return;
@@ -279,7 +281,6 @@ function Calendar({ user, onLogout }) {
               <input
                 type="date"
                 value={newEvent.date}
-                readOnly
                 onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                 className="calendar-input"
                 required
