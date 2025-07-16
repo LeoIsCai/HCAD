@@ -101,7 +101,7 @@ function Calendar({ user, onLogout }) {
 
   const handleDateClick = (clickInfo) => {
     const date = clickInfo.date; // JS Date
-    const isoDate = date.toISOString().slice(0,10); // "YYYY-MM-DD"
+    const isoDate = clickInfo.dateStr; // "YYYY-MM-DD"
     setNewEvent({
       title: '',
       date: isoDate,
