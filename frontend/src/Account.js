@@ -90,11 +90,15 @@ function Account({ user, onLogout }) {
         title="Mein Account"
         actions={[
           {
-            label: 'Dashboard',
+            label: 'Meine Startseite',
             onClick: () => navigate('/dashboard'),
           },
+          { 
+            label: 'Kalender',
+            onClick: () => navigate('/calendar'),
+          },
           {
-            label: 'Logout',
+            label: 'Abmelden',
             onClick: () => {
               onLogout();
               navigate('/');

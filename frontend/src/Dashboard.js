@@ -24,7 +24,7 @@ export default function Dashboard({ user, onLogout }) {
   const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
   useEffect(() => {
-    document.title = 'Dashboard | Remedy';
+    document.title = 'Startseite | Remedy';
   }, []);
 
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function Dashboard({ user, onLogout }) {
   return (
     <div className="dashboard-container">
       <Topbar
-        title="Dein Dashboard"
+        title="Meine Startseite"
         actions={[
           {
             label: 'Kalender',
@@ -193,7 +193,7 @@ export default function Dashboard({ user, onLogout }) {
             onClick: () => navigate('/account'),
           },
           {
-            label: 'Logout',
+            label: 'Abmelden',
             onClick: onLogout,
             type: 'danger'
           }

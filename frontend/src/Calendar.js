@@ -7,6 +7,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 import deLocale from '@fullcalendar/core/locales/de';
 import Modal from './Modal';
 import './calendar.css';
+import Topbar from './Topbar';
+import './topbar.css';
 
 function Calendar({ user, onLogout }) {
   const [events, setEvents] = useState([]);
@@ -21,7 +23,6 @@ function Calendar({ user, onLogout }) {
     recurring: false,
     recurring_type: 'none'
   });
-  const [language, setLanguage] = useState('de');
   const navigate = useNavigate();
   const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
@@ -62,6 +63,8 @@ function Calendar({ user, onLogout }) {
       let currentDate = new Date(startDate);
       let instanceCount = 0;
       const maxInstances = 365;
+      //
+
 
       while (currentDate <= oneYearFromNow && instanceCount < maxInstances) {
         const instanceEnd = new Date(currentDate.getTime() + duration);
@@ -84,25 +87,24 @@ function Calendar({ user, onLogout }) {
           case 'monthly':
             currentDate.setMonth(currentDate.getMonth() + 1);
             break;
-          case 'yearly':
-            currentDate.setFullYear(currentDate.getFullYear() + 1);
-            break;
           default:
             return;
         }
         instanceCount++;
       }
+
+
     });
 
     return expanded;
   };
 
   const handleDateClick = (clickInfo) => {
-    const date = clickInfo.date; // JS Date
-    const isoDate = date.toISOString().slice(0,10); // "YYYY-MM-DD"
+    //const date = clickInfo.date; // JS Date
+    //const isoDate = date.toISOString().slice(0,10); // "YYYY-MM-DD"
     setNewEvent({
       title: '',
-      date: clickInfo.dateStr,
+      date: clickInfo.startStr,
       start: "",
       end:   '',
       recurring: false,
@@ -141,6 +143,7 @@ function Calendar({ user, onLogout }) {
     end:   endISO,
     recurring: newEvent.recurring,
     recurring_type: newEvent.recurring_type
+
   };
   try {
     const res = await fetch(`${API}/calendar`, {
@@ -148,9 +151,12 @@ function Calendar({ user, onLogout }) {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
+
     });
     if (res.ok) {
       setShowModal(false);
+      console.log("Payload being sent:", payload);
+
       setNewEvent({
         title: '',
         date: '',
@@ -200,25 +206,27 @@ function Calendar({ user, onLogout }) {
 
   return (
     <div className="calendar-container">
-      <div className="calendar-topbar">
-        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 600 }}>Mein Kalender</h1>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="calendar-select"
-          >
-            <option value="de">Deutsch</option>
-            <option value="en">English</option>
-          </select>
-          <button onClick={() => navigate('/dashboard')} className="calendar-button secondary">
-            Dashboard
-          </button>
-          <button onClick={onLogout} className="calendar-button danger">
-            Abmelden
-          </button>
-        </div>
-      </div>
+      <Topbar
+        title="Mein Kalender"
+        actions={[
+          {
+            label: 'Meine Startseite',
+            onClick: () => navigate('/dashboard'),
+          },
+          {
+            label: 'Mein Account',
+            onClick: () => navigate('/account'),
+          },
+          {
+            label: 'Abmelden',
+            onClick: () => {
+              onLogout();
+              navigate('/');
+            },
+            type: 'danger'
+          }
+        ]}      
+      />  
 
       <div className="calendar-wrapper">
         <FullCalendar
@@ -228,7 +236,7 @@ function Calendar({ user, onLogout }) {
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
           }}
-          locale={language === 'de' ? deLocale : 'en'}
+          locale={deLocale}
           initialView="dayGridMonth"
           selectable={true}
           selectMirror={true}
@@ -240,12 +248,12 @@ function Calendar({ user, onLogout }) {
           eventClick={handleEventClick}
           height="auto"
           eventTextColor="#fff"
-          eventBackgroundColor="#1f93ff"
+          eventBackgroundColor="#69B8B3"
           buttonText={{
-            today: language === 'de' ? 'Heute' : 'Today',
-            month: language === 'de' ? 'Monat' : 'Month',
-            week: language === 'de' ? 'Woche' : 'Week',
-            day: language === 'de' ? 'Tag' : 'Day'
+            today: 'Heute',
+            month: 'Monat',
+            week: 'Woche',
+            day: 'Tag'
           }}
         />
       </div>
@@ -272,7 +280,9 @@ function Calendar({ user, onLogout }) {
                 type="date"
                 value={newEvent.date}
                 readOnly
+                onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                 className="calendar-input"
+                required
               />
             </div>
 
@@ -302,36 +312,46 @@ function Calendar({ user, onLogout }) {
               <input
                 type="checkbox"
                 checked={newEvent.recurring}
-                onChange={(e) => setNewEvent({ ...newEvent, recurring: e.target.checked })}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setNewEvent((prev) => ({
+                    ...prev,
+                    recurring: isChecked,
+                    recurring_type: isChecked ? "daily" : ""  // Set to "daily" when checked, clear when unchecked
+                  }));
+                }}
               />
               Wiederkehrender Termin
             </div>
 
+
+
             {newEvent.recurring && (
               <div className="calendar-form-section">
                 <label>Wiederholung:</label>
+                
                 <select
-                  value={newEvent.recurring_type}
+                    value={newEvent.recurring_type}
                   onChange={(e) => setNewEvent({ ...newEvent, recurring_type: e.target.value })}
                 >
+                
                   <option value="daily">Täglich</option>
                   <option value="weekly">Wöchentlich</option>
                   <option value="monthly">Monatlich</option>
-                  <option value="yearly">Jährlich</option>
                 </select>
               </div>
             )}
 
             <div className="calendar-form-actions">
+              <button type="submit" className="calendar-button">
+                Termin erstellen
+              </button>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="calendar-button secondary"
+                className="calendar-button danger"
               >
                 Abbrechen
-              </button>
-              <button type="submit" className="calendar-button">
-                Termin erstellen
               </button>
             </div>
           </form>
