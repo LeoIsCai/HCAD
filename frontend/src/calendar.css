@@ -89,3 +89,37 @@
   gap: 10px;
   justify-content: flex-end;
 }
+
+.fc .fc-button-primary {
+  background-color: #69B8B3 !important; 
+  border-color: #69B8B3 !important;
+  color: white !important;
+}
+
+
+.fc .fc-button-primary:hover,
+.fc .fc-button-primary:focus {
+  background-color: #56A29E !important;
+  border-color: #56A29E !important;
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: #9E9E9E !important;
+  border-color: #9E9E9E !important;
+}
+
+.fc .fc-day-today {
+  background-color: #E1F7F6 !important; 
+}
+
+.fc .fc-timegrid-axis {
+  background-color: #f0f0f0; 
+  color: #333;
+}
+/*
+.fc .fc-timegrid-slot {
+  
+  background-color: #ffffff; /* or #f9f9f9 for subtle tone 
+}
+  */
+
