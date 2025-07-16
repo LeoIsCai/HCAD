@@ -113,9 +113,9 @@ function Calendar({ user, onLogout }) {
    setShowModal(true);
   };
 
-  const handleDateSelect = ({ selectInfo }) => {
+  const handleDateSelect = ( selectInfo ) => {
     const dt = new Date(selectInfo.start);
-    const isoDate = dt.toISOString().slice(0,10)
+    const isoDate = selectInfo.startStr.slice(0,10);
     setNewEvent({
       title: '',
       date: isoDate,
@@ -282,7 +282,6 @@ function Calendar({ user, onLogout }) {
               <input
                 type="date"
                 value={newEvent.date}
-                readOnly
                 onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
                 className="calendar-input"
                 required
