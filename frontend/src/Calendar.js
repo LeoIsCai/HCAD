@@ -100,11 +100,11 @@ function Calendar({ user, onLogout }) {
   };
 
   const handleDateClick = (clickInfo) => {
-    //const date = clickInfo.date; // JS Date
-    //const isoDate = date.toISOString().slice(0,10); // "YYYY-MM-DD"
+    const date = clickInfo.date; // JS Date
+    const isoDate = date.toISOString().slice(0,10); // "YYYY-MM-DD"
     setNewEvent({
       title: '',
-      date: clickInfo.dateStr,
+      date: isoDate,
       start: "",
       end:   '',
       recurring: false,
@@ -113,12 +113,14 @@ function Calendar({ user, onLogout }) {
    setShowModal(true);
   };
 
-  const handleDateSelect = ({ startStr, endStr }) => {
+  const handleDateSelect = ({ selectInfo }) => {
+    const dt = new Date(selectInfo.start);
+    const isoDate = dt.toISOString().slice(0,10)
     setNewEvent({
       title: '',
-      date: startStr.slice(0,10),
-      start: startStr,
-      end: endStr || startStr,
+      date: isoDate,
+      start: '',
+      end:   '',
       recurring: false,
       recurring_type: 'none'
     });
